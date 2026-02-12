@@ -1,42 +1,8 @@
 
 import { DashboardData, InvoiceMetadata, ProductionLineItem } from '../types';
 
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1XoV7020NTZk1kzqn3F2ks3gOVFJ5arr5NVgUdewWPNQ/export?format=csv&gid=1100244896';
-
-function parseCSV(csvText: string): string[][] {
-  const rows = [];
-  let currentRow = [];
-  let currentField = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      currentRow.push(currentField.trim());
-      currentField = '';
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      if (currentField || currentRow.length > 0) {
-        currentRow.push(currentField.trim());
-        rows.push(currentRow);
-        currentRow = [];
-        currentField = '';
-      }
-      if (char === '\r' && csvText[i + 1] === '\n') i++;
-    } else {
-      currentField += char;
-    }
-  }
-  if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
-    rows.push(currentRow);
-  }
-  return rows;
-}
-
-export async function fetchDashboardData(): Promise<DashboardData> {
-  const response = await fetch(SHEET_URL);
+export async function fetchDashboardData(url: string): Promise<DashboardData> {
+  const response = await fetch(url);
   if (!response.ok) throw new Error('Failed to fetch spreadsheet data');
   const csvText = await response.text();
   const rows = parseCSV(csvText);
@@ -60,7 +26,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   // Parse Line Items (Row 6 onwards, index 5)
   const items: ProductionLineItem[] = [];
   
-  // Explicitly initialize summary counters to ensure they only total until LIMIT
+  // Explicitly initialize summary counters
   let totalPoQty = 0;
   let totalStockIn = 0;
   let totalRemaining = 0;
@@ -127,4 +93,36 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   };
 
   return { invoices, items, summary };
+}
+
+function parseCSV(csvText: string): string[][] {
+  const rows = [];
+  let currentRow = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentField.trim());
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField.trim());
+        rows.push(currentRow);
+        currentRow = [];
+        currentField = '';
+      }
+      if (char === '\r' && csvText[i + 1] === '\n') i++;
+    } else {
+      currentField += char;
+    }
+  }
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    rows.push(currentRow);
+  }
+  return rows;
 }

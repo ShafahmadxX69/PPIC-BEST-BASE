@@ -5,6 +5,9 @@ import { getAiInsights } from './services/geminiService';
 import { DashboardData } from './types';
 import Dashboard from './components/Dashboard';
 
+const LIVE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1XoV7020NTZk1kzqn3F2ks3gOVFJ5arr5NVgUdewWPNQ/export?format=csv&gid=1100244896';
+const DUMMY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1-amnAYKkoKKXtZ3rzirg0K9gnD6lUFOqV2hqFf5iPEQ/export?format=csv&gid=552593670';
+
 const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -12,29 +15,38 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [isDummyMode, setIsDummyMode] = useState(false);
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       
-      const fetchedData = await fetchDashboardData();
+      const url = isDummyMode ? DUMMY_SHEET_URL : LIVE_SHEET_URL;
+      const fetchedData = await fetchDashboardData(url);
+      
       setData(fetchedData);
       setError(null);
     } catch (err) {
+      console.error('Data loading error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isDummyMode]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, isDummyMode]);
 
   const handleRefresh = () => {
     loadData(true);
+  };
+
+  const toggleDummyMode = () => {
+    setIsDummyMode(prev => !prev);
+    setInsights(""); // Clear insights when switching modes
   };
 
   const handleGenerateInsights = async () => {
@@ -54,7 +66,9 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-600 font-medium animate-pulse">Loading Production Data...</p>
+        <p className="text-slate-600 font-medium animate-pulse text-center px-4">
+          {isDummyMode ? 'Syncing with Dummy Database...' : 'Loading Production Data...'}
+        </p>
       </div>
     );
   }
@@ -68,12 +82,20 @@ const App: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Sync Failed</h2>
           <p className="text-slate-600 mb-6">{error}</p>
-          <button 
-            onClick={() => loadData()}
-            className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold hover:bg-slate-900 transition-colors"
-          >
-            Retry Connection
-          </button>
+          <div className="space-y-3">
+            <button 
+              onClick={() => loadData()}
+              className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold hover:bg-slate-900 transition-colors"
+            >
+              Retry Connection
+            </button>
+            <button 
+              onClick={() => setIsDummyMode(true)}
+              className="w-full bg-white text-slate-800 border border-slate-200 py-3 rounded-xl font-semibold hover:bg-slate-50 transition-colors"
+            >
+              Try Dummy Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -94,6 +116,8 @@ const App: React.FC = () => {
           isGeneratingInsights={isGeneratingInsights}
           onGenerateInsights={handleGenerateInsights}
           onRefresh={handleRefresh}
+          isDummyMode={isDummyMode}
+          onToggleDummyMode={toggleDummyMode}
         />
       )}
     </div>

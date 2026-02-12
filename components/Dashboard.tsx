@@ -8,6 +8,8 @@ interface DashboardProps {
   isGeneratingInsights: boolean;
   onGenerateInsights: () => void;
   onRefresh: () => void;
+  isDummyMode?: boolean;
+  onToggleDummyMode?: () => void;
 }
 
 type Language = 'en' | 'zh' | 'id';
@@ -45,6 +47,7 @@ const translations = {
     bestBase: 'BEST BASE',
     subtitle: 'Production & Inventory Real-time Intelligence',
     live: 'Live Sync Active',
+    dummy: 'Dummy Mode Active',
     aiInsights: 'AI Insights',
     analyzing: 'Analyzing...',
     totalPo: 'Total PO Qty',
@@ -82,13 +85,16 @@ const translations = {
     completion: 'Completion',
     shipProgress: 'Ship Progress',
     filterMonth: 'Filter Month',
-    allMonths: 'All Months'
+    allMonths: 'All Months',
+    toggleLive: 'Switch to Live',
+    toggleDummy: 'Dummy Dashboard'
   },
   zh: {
     ppic: '生产计划',
     bestBase: 'BEST BASE',
     subtitle: '生产与库存实时智能系统',
     live: '实时同步激活',
+    dummy: '虚拟模式已激活',
     aiInsights: 'AI 见解',
     analyzing: '分析中...',
     totalPo: '总采购量',
@@ -126,13 +132,16 @@ const translations = {
     completion: '完成率',
     shipProgress: '发货进度',
     filterMonth: '过滤月份',
-    allMonths: '所有月份'
+    allMonths: '所有月份',
+    toggleLive: '切换到实时',
+    toggleDummy: '虚拟仪表盘'
   },
   id: {
     ppic: 'PPIC',
     bestBase: 'BEST BASE',
     subtitle: 'Intelijen Real-time Produksi & Inventaris',
     live: 'Sinkronisasi Hidup',
+    dummy: 'Mode Dummy Aktif',
     aiInsights: 'Wawasan AI',
     analyzing: 'Menganalisis...',
     totalPo: 'Total Qty PO',
@@ -170,11 +179,16 @@ const translations = {
     completion: 'Penyelesaian',
     shipProgress: 'Progres Kirim',
     filterMonth: 'Filter Bulan',
-    allMonths: 'Semua Bulan'
+    allMonths: 'Semua Bulan',
+    toggleLive: 'Pindah ke Live',
+    toggleDummy: 'Dashboard Dummy'
   }
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsights, onGenerateInsights, onRefresh }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  data, insights, isGeneratingInsights, onGenerateInsights, onRefresh,
+  isDummyMode, onToggleDummyMode
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [lang, setLang] = useState<Language>('en');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -204,7 +218,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
         idx++;
       }
     });
-    // Also include customer names from items
     data.items.forEach(item => {
         if (item.customer && !map[item.customer]) {
           map[item.customer] = palette[idx % palette.length];
@@ -342,6 +355,15 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
         </div>
         
         <div className="flex items-center flex-wrap gap-3">
+          {/* Dummy Mode Toggle */}
+          <button 
+            onClick={onToggleDummyMode}
+            className={`px-4 py-2.5 rounded-xl shadow-sm border font-bold text-sm transition-all flex items-center gap-2 active:scale-95 ${isDummyMode ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+          >
+            <i className={`fas ${isDummyMode ? 'fa-toggle-on text-amber-500' : 'fa-toggle-off text-slate-400'}`}></i>
+            {isDummyMode ? t.toggleLive : t.toggleDummy}
+          </button>
+
           <div className="relative group">
             <button className="bg-white px-4 py-2.5 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">
               <i className="fas fa-globe text-blue-500"></i>
@@ -361,9 +383,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
             </div>
           </div>
 
-          <div className="bg-white px-4 py-2.5 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2 hidden sm:flex">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{t.live}</span>
+          <div className={`px-4 py-2.5 rounded-xl shadow-sm border flex items-center gap-2 hidden sm:flex ${isDummyMode ? 'bg-amber-600 border-amber-500 text-white' : 'bg-white border-slate-200'}`}>
+            <span className={`w-2 h-2 rounded-full animate-pulse ${isDummyMode ? 'bg-white' : 'bg-green-500'}`}></span>
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDummyMode ? 'text-white' : 'text-slate-600'}`}>
+              {isDummyMode ? t.dummy : t.live}
+            </span>
           </div>
 
           <button 
@@ -419,7 +443,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
           </div>
         </div>
 
-        {/* Shipment Qty History - Limited to 10 entries to avoid overflow */}
+        {/* Shipment Qty History */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col group/chart h-[400px] overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-slate-500 font-bold uppercase text-[10px] tracking-widest flex items-center gap-2">
@@ -430,7 +454,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
           <div className="flex-grow flex items-end justify-around gap-2 min-h-[160px] px-2 pb-14 relative">
             {shipmentByDateAndBrand.length > 0 ? (() => {
               const maxTotal = Math.max(...shipmentByDateAndBrand.map(d => (Object.values(d[1]) as number[]).reduce((a: number, b: number) => a + b, 0)), 1);
-              // Limit to last 10 points to ensure labels and bars don't overlap horizontally
               return shipmentByDateAndBrand.slice(-10).map(([date, brandData]) => {
                 const totalForDate = (Object.values(brandData) as number[]).reduce((a: number, b: number) => a + b, 0);
                 const totalHeightPercent = (Number(totalForDate) / Number(maxTotal)) * 100;
@@ -469,7 +492,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, insights, isGeneratingInsig
                         })}
                       </div>
                     </div>
-                    {/* Fixed rotated labels with specific orientation to prevent clipping */}
                     <div className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 text-[8px] font-bold text-slate-400 rotate-45 origin-top-left whitespace-nowrap opacity-60">
                       {date.split(/[/.-]/).slice(0, 2).join('/')}
                     </div>
