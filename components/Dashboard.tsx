@@ -86,8 +86,9 @@ const translations = {
     shipProgress: 'Ship Progress',
     filterMonth: 'Filter Month',
     allMonths: 'All Months',
-    toggleLive: 'Switch to Live',
-    toggleDummy: 'Dummy Dashboard'
+    toggleLive: 'Main Dashboard',
+    toggleDummy: 'Dummy Dashboard',
+    todayDate: 'Today Date'
   },
   zh: {
     ppic: '生产计划',
@@ -133,8 +134,9 @@ const translations = {
     shipProgress: '发货进度',
     filterMonth: '过滤月份',
     allMonths: '所有月份',
-    toggleLive: '切换到实时',
-    toggleDummy: '虚拟仪表盘'
+    toggleLive: '主仪表盘',
+    toggleDummy: '虚拟仪表盘',
+    todayDate: '今日日期'
   },
   id: {
     ppic: 'PPIC',
@@ -180,8 +182,9 @@ const translations = {
     shipProgress: 'Progres Kirim',
     filterMonth: 'Filter Bulan',
     allMonths: 'Semua Bulan',
-    toggleLive: 'Pindah ke Live',
-    toggleDummy: 'Dashboard Dummy'
+    toggleLive: 'Dashboard Utama',
+    toggleDummy: 'Dashboard Dummy',
+    todayDate: 'Tanggal Hari Ini'
   }
 };
 
@@ -192,6 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [lang, setLang] = useState<Language>('en');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const t = translations[lang];
 
   // Derive available months from invoices for the filter
@@ -297,6 +301,23 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [data.items]);
 
+  const sortedUpcomingExports = useMemo(() => {
+    const today = new Date(referenceDate);
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+
+    return [...data.invoices]
+      .filter(inv => {
+        const date = parseSpreadsheetDate(inv.exportDate);
+        // Display if date is today or in the future
+        return date && date >= today;
+      })
+      .sort((a, b) => {
+        const dateA = parseSpreadsheetDate(a.exportDate)!;
+        const dateB = parseSpreadsheetDate(b.exportDate)!;
+        return dateA.getTime() - dateB.getTime();
+      });
+  }, [data.invoices, referenceDate]);
+
   const filteredItems = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return data.items;
@@ -355,6 +376,26 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
         
         <div className="flex items-center flex-wrap gap-3">
+          {/* Reference Date Display/Button */}
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl shadow-sm border border-slate-200">
+            <i className="fas fa-calendar-day text-blue-500"></i>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">{t.todayDate}</span>
+              <span className="text-sm font-black text-slate-700 leading-tight">
+                {referenceDate.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'id' ? 'id-ID' : 'en-US', { 
+                  day: 'numeric', month: 'short', year: 'numeric' 
+                })}
+              </span>
+            </div>
+            <button 
+              onClick={() => setReferenceDate(new Date())}
+              className="ml-2 p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-500 transition-colors"
+              title="Reset to Actual Today"
+            >
+              <i className="fas fa-sync-alt text-[10px]"></i>
+            </button>
+          </div>
+
           {/* Dummy Mode Toggle */}
           <button 
             onClick={onToggleDummyMode}
@@ -696,13 +737,16 @@ const Dashboard: React.FC<DashboardProps> = ({
               <i className="fas fa-sparkles text-blue-400"></i> {t.aiSummary}
             </h3>
             {insights ? (
-              <div className="text-sm leading-relaxed space-y-3 prose prose-invert max-none">
-                {insights.split('\n').map((line, i) => (
-                  <p key={i} className="flex gap-2">
-                    <span className="text-blue-500">•</span>
-                    <span>{line.replace(/^[*-]\s*/, '')}</span>
-                  </p>
-                ))}
+              <div className="text-sm leading-relaxed space-y-4 prose prose-invert max-none overflow-y-auto max-h-[400px] custom-scrollbar pr-2 ai-content">
+                {insights.split('\n').map((line, i) => {
+                  if (!line.trim()) return <div key={i} className="h-2" />;
+                  const isHeader = line.startsWith('#') || line.match(/^\d\./) || line.endsWith(':');
+                  return (
+                    <p key={i} className={`${isHeader ? 'font-black text-blue-400 mt-4' : 'text-slate-300 ml-2'}`}>
+                      {line.replace(/^[*-]\s*/, '')}
+                    </p>
+                  );
+                })}
               </div>
             ) : (
               <div className="py-8 text-center text-slate-500">
@@ -715,7 +759,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <h3 className="text-slate-500 font-bold uppercase text-xs tracking-widest mb-6">{t.upcomingExports}</h3>
             <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-              {data.invoices.length > 0 ? data.invoices.map((inv, idx) => (
+              {sortedUpcomingExports.length > 0 ? sortedUpcomingExports.map((inv, idx) => (
                 <div 
                   key={idx} 
                   className="flex gap-4 group cursor-pointer"

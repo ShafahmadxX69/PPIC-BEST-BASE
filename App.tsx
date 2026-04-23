@@ -16,6 +16,10 @@ const App: React.FC = () => {
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isDummyMode, setIsDummyMode] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
@@ -45,8 +49,34 @@ const App: React.FC = () => {
   };
 
   const toggleDummyMode = () => {
-    setIsDummyMode(prev => !prev);
-    setInsights(""); // Clear insights when switching modes
+    if (!isDummyMode) {
+      // Trying to switch to DUMMY
+      if (isAuthenticated) {
+        setIsDummyMode(true);
+        setInsights("");
+      } else {
+        setShowPasswordModal(true);
+      }
+    } else {
+      // Switching back to LIVE
+      setIsDummyMode(false);
+      setInsights("");
+    }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === "ULI2026") {
+      setIsAuthenticated(true);
+      setIsDummyMode(true);
+      setShowPasswordModal(false);
+      setPasswordInput("");
+      setPasswordError(false);
+      setInsights("");
+    } else {
+      setPasswordError(true);
+      setTimeout(() => setPasswordError(false), 2000);
+    }
   };
 
   const handleGenerateInsights = async () => {
@@ -119,6 +149,55 @@ const App: React.FC = () => {
           isDummyMode={isDummyMode}
           onToggleDummyMode={toggleDummyMode}
         />
+      )}
+
+      {/* Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 p-8 text-center relative">
+              <button 
+                onClick={() => setShowPasswordModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+              <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i className="fas fa-lock"></i>
+              </div>
+              <h3 className="text-xl font-black text-white">Dummy Access</h3>
+              <p className="text-slate-400 text-sm mt-1">Enter password to view dummy data</p>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="p-8 space-y-4">
+              <div>
+                <input 
+                  type="password" 
+                  autoFocus
+                  placeholder="Enter Password"
+                  className={`w-full bg-slate-50 border ${passwordError ? 'border-red-500 ring-2 ring-red-100' : 'border-slate-200'} rounded-xl px-4 py-3 text-center font-bold tracking-widest focus:ring-2 focus:ring-blue-500 outline-none transition-all`}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                />
+                {passwordError && (
+                  <p className="text-red-500 text-[10px] font-bold text-center mt-2 uppercase tracking-wider">Incorrect Password</p>
+                )}
+              </div>
+              <button 
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-black transition-all shadow-lg shadow-blue-200 active:scale-95"
+              >
+                UNLOCK DASHBOARD
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                className="w-full text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors uppercase tracking-widest"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
